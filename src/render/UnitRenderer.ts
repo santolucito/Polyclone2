@@ -7,7 +7,8 @@
 
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { UnitInstance, UnitType } from '../core/types.js';
-import { TILE_SIZE } from './constants.js';
+import { TILE_HEIGHT } from './constants.js';
+import { gridToIsoCenter } from './CoordinateUtils.js';
 
 /** Player colors: index -> fill color. */
 const PLAYER_COLORS: Record<number, number> = {
@@ -42,8 +43,8 @@ const UNIT_TYPE_LABELS: Partial<Record<UnitType, string>> = {
   [UnitType.Bomber]: 'B',
 };
 
-/** The radius of the unit circle relative to tile size. */
-const UNIT_RADIUS = TILE_SIZE * 0.32;
+/** The radius of the unit circle — fits within 32px-tall diamond. */
+const UNIT_RADIUS = TILE_HEIGHT * 0.38;
 
 /**
  * Creates a PixiJS Container representing a unit on the map.
@@ -52,10 +53,10 @@ const UNIT_RADIUS = TILE_SIZE * 0.32;
 export function createUnitGraphic(
   unit: UnitInstance,
   isSelected: boolean,
+  mapHeight: number,
 ): Container {
   const container = new Container();
-  const cx = unit.x * TILE_SIZE + TILE_SIZE / 2;
-  const cy = unit.y * TILE_SIZE + TILE_SIZE / 2;
+  const { cx, cy } = gridToIsoCenter(unit.x, unit.y, mapHeight);
 
   container.position.set(cx, cy);
 
@@ -65,8 +66,8 @@ export function createUnitGraphic(
   // Selection highlight ring (drawn first, behind the unit)
   if (isSelected) {
     const ring = new Graphics();
-    ring.circle(0, 0, UNIT_RADIUS + 4)
-      .stroke({ width: 3, color: SELECTION_COLOR, alpha: 0.9 });
+    ring.circle(0, 0, UNIT_RADIUS + 3)
+      .stroke({ width: 2, color: SELECTION_COLOR, alpha: 0.9 });
     container.addChild(ring);
   }
 
@@ -80,7 +81,7 @@ export function createUnitGraphic(
   // Type label
   const label = UNIT_TYPE_LABELS[unit.type] ?? '?';
   const style = new TextStyle({
-    fontSize: 16,
+    fontSize: 11,
     fontFamily: 'monospace',
     fontWeight: 'bold',
     fill: 0xffffff,
@@ -99,12 +100,13 @@ export function createUnitGraphic(
 export function renderUnitsToContainer(
   units: UnitInstance[],
   selectedUnitId: string | null,
+  mapHeight: number,
 ): Container {
   const container = new Container();
 
   for (const unit of units) {
     const isSelected = unit.id === selectedUnitId;
-    const graphic = createUnitGraphic(unit, isSelected);
+    const graphic = createUnitGraphic(unit, isSelected, mapHeight);
     container.addChild(graphic);
   }
 

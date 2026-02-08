@@ -8,7 +8,7 @@ import { createUnit, resetUnitIdCounter } from './core/UnitFactory.js';
 import { GameRenderer } from './render/GameRenderer.js';
 import { Camera } from './input/Camera.js';
 import { InputHandler } from './input/InputHandler.js';
-import { TILE_SIZE } from './render/constants.js';
+import { getIsoBounds, isoToGrid } from './render/CoordinateUtils.js';
 import { TurnUI } from './ui/TurnUI.js';
 
 /**
@@ -178,8 +178,7 @@ export function App() {
 
       // --- Camera & input ---
       const camera = new Camera();
-      const mapPixelWidth = gameMap.width * TILE_SIZE;
-      const mapPixelHeight = gameMap.height * TILE_SIZE;
+      const { width: mapPixelWidth, height: mapPixelHeight } = getIsoBounds(gameMap.width, gameMap.height);
 
       camera.clampBounds(
         mapPixelWidth,
@@ -191,16 +190,16 @@ export function App() {
 
       /** Handle a tap/click in world coordinates. */
       function onTileTap(worldX: number, worldY: number): void {
-        const tileX = Math.floor(worldX / TILE_SIZE);
-        const tileY = Math.floor(worldY / TILE_SIZE);
-
-        if (!gameMap.isInBounds(tileX, tileY)) {
+        const gridCoord = isoToGrid(worldX, worldY, gameMap.width, gameMap.height);
+        if (gridCoord === null || !gameMap.isInBounds(gridCoord.x, gridCoord.y)) {
           // Clicked outside map: deselect
           selection.selectedUnitId = null;
           selection.movementRange = null;
           refreshDisplay();
           return;
         }
+        const tileX = gridCoord.x;
+        const tileY = gridCoord.y;
 
         // If a unit is selected and the clicked tile is in movement range, move
         if (selection.selectedUnitId !== null && selection.movementRange !== null) {

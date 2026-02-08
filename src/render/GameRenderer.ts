@@ -14,7 +14,7 @@ import {
   renderMovementOverlay,
   renderSelectionHighlight,
 } from './OverlayRenderer.js';
-import { TILE_SIZE } from './constants.js';
+import { isoToGrid } from './CoordinateUtils.js';
 
 export class GameRenderer {
   private readonly app: Application;
@@ -64,7 +64,7 @@ export class GameRenderer {
         const tile = this.gameMap.getTile(x, y);
         if (tile === null) continue;
 
-        const graphic = createTileGraphic(tile);
+        const graphic = createTileGraphic(tile, this.gameMap.height);
         this.tileLayer.addChild(graphic);
         this.tileGraphics.push(graphic);
       }
@@ -76,7 +76,7 @@ export class GameRenderer {
    */
   renderUnits(units: UnitInstance[], selectedUnitId: string | null): void {
     this.clearUnits();
-    const container = renderUnitsToContainer(units, selectedUnitId);
+    const container = renderUnitsToContainer(units, selectedUnitId, this.gameMap.height);
     this.unitLayer.addChild(container);
   }
 
@@ -90,12 +90,12 @@ export class GameRenderer {
     this.clearOverlay();
 
     if (selectedCoord !== null) {
-      const highlight = renderSelectionHighlight(selectedCoord);
+      const highlight = renderSelectionHighlight(selectedCoord, this.gameMap.height);
       this.overlayLayer.addChild(highlight);
     }
 
     if (movementRange !== null) {
-      const overlay = renderMovementOverlay(movementRange);
+      const overlay = renderMovementOverlay(movementRange, this.gameMap.height);
       this.overlayLayer.addChild(overlay);
     }
   }
@@ -105,10 +105,10 @@ export class GameRenderer {
    * tile grid coordinates. Returns null if the click is out of map bounds.
    */
   pixelToTile(pixelX: number, pixelY: number): Coord | null {
-    const x = Math.floor(pixelX / TILE_SIZE);
-    const y = Math.floor(pixelY / TILE_SIZE);
-    if (!this.gameMap.isInBounds(x, y)) return null;
-    return { x, y };
+    const result = isoToGrid(pixelX, pixelY, this.gameMap.width, this.gameMap.height);
+    if (result === null) return null;
+    if (!this.gameMap.isInBounds(result.x, result.y)) return null;
+    return result;
   }
 
   /** Remove all tile graphics from the tile layer. */

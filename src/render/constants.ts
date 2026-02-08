@@ -4,11 +4,8 @@
 
 import { TileType } from '../core/types.js';
 
-/** Size of each tile in pixels. */
-export const TILE_SIZE = 64;
-
-/** Border width around each tile in pixels. */
-export const TILE_BORDER = 1;
+// Re-export isometric tile dimensions from the single source of truth
+export { TILE_WIDTH, TILE_HEIGHT, TILE_BORDER } from './CoordinateUtils.js';
 
 /** Map from TileType to fill color (hex number). */
 export const TERRAIN_COLORS: Record<TileType, number> = {
