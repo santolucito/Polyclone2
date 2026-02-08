@@ -3,6 +3,9 @@ import { Application } from 'pixi.js';
 import { GameMap } from './core/GameMap.js';
 import { TileType } from './core/types.js';
 import { GameRenderer } from './render/GameRenderer.js';
+import { Camera } from './input/Camera.js';
+import { InputHandler } from './input/InputHandler.js';
+import { TILE_SIZE } from './render/constants.js';
 
 /**
  * Build a sample 16x16 map with mixed terrain:
@@ -75,6 +78,7 @@ export function App() {
 
     const app = new Application();
     let renderer: GameRenderer | undefined;
+    let inputHandler: InputHandler | undefined;
 
     const init = async () => {
       await app.init({
@@ -87,11 +91,34 @@ export function App() {
       const gameMap = createSampleMap();
       renderer = new GameRenderer(app, gameMap);
       renderer.render();
+
+      // --- Camera & input ---
+      const camera = new Camera();
+      const mapPixelWidth = gameMap.width * TILE_SIZE;
+      const mapPixelHeight = gameMap.height * TILE_SIZE;
+
+      // Initial bounds clamp so the map starts positioned correctly.
+      camera.clampBounds(
+        mapPixelWidth,
+        mapPixelHeight,
+        app.canvas.clientWidth,
+        app.canvas.clientHeight,
+      );
+      camera.applyTransform(renderer.mapContainer);
+
+      inputHandler = new InputHandler(
+        camera,
+        app.canvas,
+        mapPixelWidth,
+        mapPixelHeight,
+        () => camera.applyTransform(renderer!.mapContainer),
+      );
     };
 
     init();
 
     return () => {
+      inputHandler?.destroy();
       renderer?.destroy();
       app.destroy(true);
     };
