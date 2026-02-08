@@ -99,6 +99,8 @@ export function App() {
   // Preact state for the turn UI -- drives re-renders when turn changes
   const [currentPlayer, setCurrentPlayer] = useState(0);
   const [turnNumber, setTurnNumber] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Refs so that the PixiJS game loop and the onEndTurn callback can share
   // mutable state without causing Preact re-renders on every selection change.
@@ -244,7 +246,12 @@ export function App() {
       );
     };
 
-    init();
+    init().then(() => setLoading(false)).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message + '\n' + err.stack : String(err);
+      setError(msg);
+      setLoading(false);
+      console.error('Init failed:', err);
+    });
 
     return () => {
       inputHandler?.destroy();
@@ -280,6 +287,23 @@ export function App() {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={canvasRef} id="game-canvas" style={{ width: '100%', height: '100%' }} />
+      {error && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          background: 'rgba(200,0,0,0.9)', color: '#fff', padding: '20px', borderRadius: '8px',
+          maxWidth: '80%', fontFamily: 'monospace', fontSize: '13px', whiteSpace: 'pre-wrap', zIndex: 100,
+        }}>
+          Error: {error}
+        </div>
+      )}
+      {loading && !error && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          color: '#fff', fontFamily: 'sans-serif', fontSize: '18px', zIndex: 100,
+        }}>
+          Loading...
+        </div>
+      )}
       <TurnUI
         currentPlayer={currentPlayer}
         turnNumber={turnNumber}
