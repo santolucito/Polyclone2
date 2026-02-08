@@ -12,7 +12,7 @@ import {
   getCityTerritory,
   captureCity,
 } from '../../src/core/City.js';
-import { CityInstance, UnitType } from '../../src/core/types.js';
+import { CityInstance } from '../../src/core/types.js';
 
 describe('City', () => {
   describe('getPopToNextLevel', () => {
