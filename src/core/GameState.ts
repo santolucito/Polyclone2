@@ -1,14 +1,48 @@
 /**
  * Core game state for PolyClone2.
- * Manages units, players, and the game map.
+ * Manages units, players, cities, economy, combat, tech, and the game map.
  * Pure TypeScript -- no browser or rendering dependencies.
  */
 
 import { GameMap } from './GameMap.js';
-import { Coord, GameConfig, TileType, UnitInstance } from './types.js';
+import {
+  CityInstance,
+  CityLevelRewardOption,
+  Coord,
+  Difficulty,
+  GameConfig,
+  TechId,
+  TileType,
+  TribeId,
+  UnitInstance,
+  UnitType,
+} from './types.js';
+import { PlayerTechState, calculateTechCost } from './TechTree.js';
+import { resolveCombat, getDefenseBonusForTerrain, getCityDefenseBonus } from './Combat.js';
+import { calculateCityIncome, levelUp, canLevelUp } from './City.js';
+import { createUnit, getUnitBaseStats } from './UnitFactory.js';
 
 /** Sentinel cost used by GameMap to indicate impassable terrain. */
 const IMPASSABLE_COST = 99;
+
+/** Starting stars per player. */
+const STARTING_STARS = 5;
+
+/** AI difficulty bonus SPT. */
+const AI_DIFFICULTY_BONUS: Record<Difficulty, number> = {
+  easy: 1,
+  normal: 2,
+  hard: 3,
+  crazy: 5,
+};
+
+/** Starting tech per tribe. */
+const TRIBE_STARTING_TECH: Record<TribeId, TechId> = {
+  xinxi: 'climbing',
+  imperius: 'organization',
+  bardur: 'hunting',
+  oumaji: 'riding',
+};
 
 export class GameState {
   readonly map: GameMap;
@@ -20,10 +54,31 @@ export class GameState {
   /** All live units, keyed by unit ID. */
   private readonly units: Map<string, UnitInstance> = new Map();
 
+  /** Per-player star balance. */
+  private readonly stars: number[];
+
+  /** Per-player tech state. */
+  private readonly techStates: PlayerTechState[];
+
+  /** All cities on the map. */
+  private readonly cities: CityInstance[] = [];
+
+  /** Whether the game has been won (player index, or -1 for none). */
+  private winner: number = -1;
+
   constructor(map: GameMap, config: GameConfig) {
     this.map = map;
     this.config = config;
     this.playerCount = config.tribes.length;
+
+    // Initialize stars
+    this.stars = new Array(this.playerCount).fill(STARTING_STARS);
+
+    // Initialize tech states with tribe starting techs
+    this.techStates = config.tribes.map(tribeId => {
+      const startingTech = TRIBE_STARTING_TECH[tribeId];
+      return new PlayerTechState(startingTech ? [startingTech] : []);
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -40,19 +95,271 @@ export class GameState {
     return this.turnNumber;
   }
 
-  /** Advances to the next player's turn and resets all their units' moved/attacked flags. */
+  /** Get the tribe ID for a player index. */
+  getTribeForPlayer(player: number): TribeId {
+    return this.config.tribes[player];
+  }
+
+  /** Returns the winner player index, or -1 if no winner yet. */
+  getWinner(): number {
+    return this.winner;
+  }
+
+  /** Advances to the next player's turn, collects income, and resets unit flags. */
   endTurn(): void {
     this.currentPlayer = (this.currentPlayer + 1) % this.playerCount;
     // Increment turn number when it wraps back to player 0 (a full round completed)
     if (this.currentPlayer === 0) {
       this.turnNumber++;
     }
+
+    // Collect income for the new current player
+    this.collectIncome(this.currentPlayer);
+
     // Reset moved/attacked flags for the new current player's units
     for (const [id, unit] of this.units) {
       if (unit.owner === this.currentPlayer) {
         this.units.set(id, { ...unit, hasMoved: false, hasAttacked: false });
       }
     }
+
+    // Check domination win condition
+    this.checkWinCondition();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Star Economy
+  // ---------------------------------------------------------------------------
+
+  /** Get the star balance for a player. */
+  getStars(player: number): number {
+    return this.stars[player] ?? 0;
+  }
+
+  /** Spend stars. Returns false if insufficient. */
+  spendStars(player: number, amount: number): boolean {
+    if (this.stars[player] === undefined || this.stars[player] < amount) return false;
+    this.stars[player] -= amount;
+    return true;
+  }
+
+  /** Add stars to a player. */
+  addStars(player: number, amount: number): void {
+    if (this.stars[player] !== undefined) {
+      this.stars[player] += amount;
+    }
+  }
+
+  /** Calculate total income for a player. */
+  getIncome(player: number): number {
+    const tribeId = this.config.tribes[player];
+    const playerCities = this.getCitiesForPlayer(tribeId);
+    let income = 0;
+    for (const city of playerCities) {
+      income += calculateCityIncome(city);
+    }
+    // AI difficulty bonus (player 0 is always human)
+    if (player > 0) {
+      income += AI_DIFFICULTY_BONUS[this.config.difficulty];
+    }
+    return income;
+  }
+
+  /** Collect income at turn start for the given player. */
+  private collectIncome(player: number): void {
+    const income = this.getIncome(player);
+    this.addStars(player, income);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cities
+  // ---------------------------------------------------------------------------
+
+  /** Add a city to the game. */
+  addCity(city: CityInstance): void {
+    this.cities.push(city);
+  }
+
+  /** Get all cities belonging to a tribe. */
+  getCitiesForPlayer(owner: TribeId): CityInstance[] {
+    return this.cities.filter(c => c.owner === owner);
+  }
+
+  /** Get the city at a grid position, or undefined if none. */
+  getCityAt(x: number, y: number): CityInstance | undefined {
+    return this.cities.find(c => c.position.x === x && c.position.y === y);
+  }
+
+  /** Get all cities. */
+  getAllCities(): CityInstance[] {
+    return [...this.cities];
+  }
+
+  /** Get the number of cities owned by a player (by index). */
+  getCityCountForPlayer(player: number): number {
+    const tribeId = this.config.tribes[player];
+    return this.cities.filter(c => c.owner === tribeId).length;
+  }
+
+  /** Update a city in-place (replaces the city at the same position). */
+  private updateCity(updated: CityInstance): void {
+    const idx = this.cities.findIndex(
+      c => c.position.x === updated.position.x && c.position.y === updated.position.y,
+    );
+    if (idx >= 0) {
+      this.cities[idx] = updated;
+    }
+  }
+
+  /**
+   * Level up a city with the chosen reward.
+   * Returns the reward option if successful, undefined otherwise.
+   */
+  levelUpCity(cityX: number, cityY: number, reward: CityLevelRewardOption): CityLevelRewardOption | undefined {
+    const city = this.getCityAt(cityX, cityY);
+    if (!city) return undefined;
+    if (!canLevelUp(city)) return undefined;
+
+    const updated = levelUp(city, reward);
+    this.updateCity(updated);
+
+    // Handle external reward effects
+    if (reward.kind === 'stars') {
+      const player = this.getPlayerForTribe(city.owner);
+      if (player >= 0) {
+        this.addStars(player, reward.amount);
+      }
+    }
+
+    return reward;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Combat
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Execute an attack from one unit to a target position.
+   * Returns the combat result summary, or undefined if invalid.
+   */
+  attackUnit(
+    attackerId: string,
+    targetX: number,
+    targetY: number,
+  ): { damageToDefender: number; damageToAttacker: number; defenderKilled: boolean; attackerKilled: boolean } | undefined {
+    const attacker = this.units.get(attackerId);
+    if (!attacker) return undefined;
+    if (attacker.owner !== this.currentPlayer) return undefined;
+    if (attacker.hasAttacked) return undefined;
+
+    const defender = this.getUnitAt(targetX, targetY);
+    if (!defender) return undefined;
+    if (defender.owner === attacker.owner) return undefined;
+
+    // Check range (Chebyshev distance)
+    const dist = Math.max(Math.abs(attacker.x - targetX), Math.abs(attacker.y - targetY));
+    if (dist > attacker.range) return undefined;
+
+    // Calculate defense bonus
+    const tile = this.map.getTile(targetX, targetY);
+    let defenseBonus = tile ? getDefenseBonusForTerrain(tile.type) : 1.0;
+
+    // City defense bonus overrides terrain if defender is in a city
+    const defenderCity = this.getCityAt(targetX, targetY);
+    if (defenderCity) {
+      defenseBonus = getCityDefenseBonus(defenderCity.hasWall);
+    }
+
+    const result = resolveCombat(attacker, defender, defenseBonus, dist);
+
+    // Apply results
+    if (result.defenderKilled) {
+      this.units.delete(defender.id);
+    } else {
+      this.units.set(defender.id, result.defender);
+    }
+
+    if (result.attackerKilled) {
+      this.units.delete(attacker.id);
+    } else {
+      this.units.set(attacker.id, result.attacker);
+    }
+
+    return {
+      damageToDefender: result.damageToDefender,
+      damageToAttacker: result.damageToAttacker,
+      defenderKilled: result.defenderKilled,
+      attackerKilled: result.attackerKilled,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Technology
+  // ---------------------------------------------------------------------------
+
+  /** Get the tech state for a player. */
+  getTechState(player: number): PlayerTechState {
+    return this.techStates[player];
+  }
+
+  /**
+   * Research a technology for the current player.
+   * Returns true if successful.
+   */
+  researchTech(player: number, techId: TechId): boolean {
+    const techState = this.techStates[player];
+    if (!techState) return false;
+    if (!techState.canResearch(techId)) return false;
+
+    const numCities = this.getCityCountForPlayer(player);
+    const cost = calculateTechCost(techId, Math.max(1, numCities), techState.hasLiteracy());
+
+    if (!this.spendStars(player, cost)) return false;
+
+    techState.research(techId);
+    return true;
+  }
+
+  /** Get the cost of a tech for a player. */
+  getTechCost(player: number, techId: TechId): number {
+    const techState = this.techStates[player];
+    const numCities = this.getCityCountForPlayer(player);
+    return calculateTechCost(techId, Math.max(1, numCities), techState?.hasLiteracy() ?? false);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Unit Training
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Train a unit at a city position.
+   * Returns the created unit, or undefined if invalid.
+   */
+  trainUnit(cityX: number, cityY: number, unitType: UnitType): UnitInstance | undefined {
+    const city = this.getCityAt(cityX, cityY);
+    if (!city) return undefined;
+
+    const player = this.getPlayerForTribe(city.owner);
+    if (player < 0) return undefined;
+    if (player !== this.currentPlayer) return undefined;
+
+    // Check tech unlock (warriors are always available)
+    if (unitType !== UnitType.Warrior) {
+      const techState = this.techStates[player];
+      if (!techState || !techState.isUnitUnlocked(unitType)) return undefined;
+    }
+
+    // Check cost
+    const stats = getUnitBaseStats(unitType);
+    if (stats.cost === null) return undefined; // Not trainable (Giant, etc.)
+    if (!this.spendStars(player, stats.cost)) return undefined;
+
+    // Check tile is empty
+    if (this.getUnitAt(cityX, cityY) !== undefined) return undefined;
+
+    const unit = createUnit(unitType, player, cityX, cityY);
+    this.addUnit(unit);
+    return unit;
   }
 
   // ---------------------------------------------------------------------------
@@ -107,14 +414,6 @@ export class GameState {
   /**
    * Attempt to move a unit to (toX, toY).
    * Returns true if the move succeeded; false if invalid.
-   *
-   * Validation:
-   *   - Unit must exist and belong to the current player
-   *   - Unit must not have moved this turn
-   *   - Destination must be in bounds
-   *   - Destination must be passable (not water for land units)
-   *   - Destination must not be occupied by another unit
-   *   - Destination must be within the unit's movement range
    */
   moveUnit(unitId: string, toX: number, toY: number): boolean {
     const unit = this.units.get(unitId);
@@ -140,28 +439,13 @@ export class GameState {
 
   /**
    * Computes the set of tiles a unit can move to using BFS.
-   *
-   * Returns a Set of "x,y" coordinate strings for all reachable positions.
-   * The unit's own tile is NOT included in the result.
-   *
-   * Movement rules:
-   *   - BFS from the unit's current position
-   *   - Each step costs the movement cost of the destination terrain
-   *   - If cost >= 99, the tile is treated as impassable (water for land units)
-   *     UNLESS the unit has remaining movement equal to its full movement
-   *     stat and the terrain costs 99 (forests/mountains "use all remaining
-   *     movement" — meaning you can enter them if you haven't moved yet,
-   *     but can't move further)
-   *   - A tile occupied by another unit is not a valid destination but can
-   *     be pathed through if it belongs to the same player
    */
   getMovementRange(unitId: string): Set<string> {
     const unit = this.units.get(unitId);
     if (unit === undefined) return new Set();
 
     const reachable = new Set<string>();
-    // BFS: each entry is { x, y, remainingMovement }
-    const visited = new Map<string, number>(); // key -> best remaining movement
+    const visited = new Map<string, number>();
     const queue: { x: number; y: number; remaining: number }[] = [];
 
     const startKey = `${unit.x},${unit.y}`;
@@ -178,18 +462,13 @@ export class GameState {
           { x: neighbor.x, y: neighbor.y },
         );
 
-        // Determine if we can enter this tile
         let newRemaining: number;
 
         if (this.isWaterTile(neighbor.x, neighbor.y)) {
-          // Water is truly impassable for land units
           continue;
         }
 
         if (cost >= IMPASSABLE_COST) {
-          // Forest/mountain: can enter only if we have full remaining movement
-          // (i.e., from the unit's starting position or after not spending movement)
-          // and it uses ALL remaining movement (remaining becomes 0)
           if (current.remaining >= unit.movement && unit.movement >= 1) {
             newRemaining = 0;
           } else {
@@ -204,25 +483,20 @@ export class GameState {
         const prevBest = visited.get(nKey);
 
         if (prevBest !== undefined && prevBest >= newRemaining) {
-          continue; // Already visited with equal or more remaining movement
+          continue;
         }
 
         visited.set(nKey, newRemaining);
 
-        // Check if there's a unit on this tile
         const occupant = this.getUnitAt(neighbor.x, neighbor.y);
 
         if (occupant === undefined) {
-          // Empty tile: valid destination
           reachable.add(nKey);
         }
-        // If occupant is friendly, we can path through but not stop here
-        // If occupant is enemy, we cannot path through at all
         if (occupant !== undefined && occupant.owner !== unit.owner) {
-          continue; // Can't path through enemy units
+          continue;
         }
 
-        // Continue BFS from this tile (even if occupied by friendly, we path through)
         if (newRemaining > 0) {
           queue.push({ x: neighbor.x, y: neighbor.y, remaining: newRemaining });
         }
@@ -241,8 +515,48 @@ export class GameState {
   }
 
   // ---------------------------------------------------------------------------
+  // Win Condition
+  // ---------------------------------------------------------------------------
+
+  private checkWinCondition(): void {
+    if (this.config.winCondition !== 'domination') return;
+    if (this.winner >= 0) return;
+
+    // Domination: a player wins when all other players have lost all cities and units
+    for (let p = 0; p < this.playerCount; p++) {
+      const tribe = this.config.tribes[p];
+      const hasCities = this.cities.some(c => c.owner === tribe);
+      const hasUnits = this.getUnitsForPlayer(p).length > 0;
+      if (hasCities || hasUnits) continue;
+      // Player p is eliminated — but that doesn't mean someone won yet
+    }
+
+    // Check if only one player remains with cities or units
+    let remainingPlayers = 0;
+    let lastPlayer = -1;
+    for (let p = 0; p < this.playerCount; p++) {
+      const tribe = this.config.tribes[p];
+      const hasCities = this.cities.some(c => c.owner === tribe);
+      const hasUnits = this.getUnitsForPlayer(p).length > 0;
+      if (hasCities || hasUnits) {
+        remainingPlayers++;
+        lastPlayer = p;
+      }
+    }
+
+    if (remainingPlayers === 1) {
+      this.winner = lastPlayer;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /** Get the player index for a tribe ID. Returns -1 if not found. */
+  getPlayerForTribe(tribeId: TribeId): number {
+    return this.config.tribes.indexOf(tribeId);
+  }
 
   private isWaterTile(x: number, y: number): boolean {
     const tile = this.map.getTile(x, y);

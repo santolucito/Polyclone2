@@ -1,81 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { Application } from 'pixi.js';
-import { GameMap } from './core/GameMap.js';
-import { GameState } from './core/GameState.js';
-import { TileType, UnitType } from './core/types.js';
-import type { GameConfig } from './core/types.js';
-import { createUnit, resetUnitIdCounter } from './core/UnitFactory.js';
 import { GameRenderer } from './render/GameRenderer.js';
 import { Camera } from './input/Camera.js';
 import { InputHandler } from './input/InputHandler.js';
 import { getIsoBounds, isoToGrid } from './render/CoordinateUtils.js';
+import { useGameStore } from './store/gameStore.js';
 import { TurnUI } from './ui/TurnUI.js';
+import type { GameConfig } from './core/types.js';
 
-/**
- * Build a sample 16x16 map with mixed terrain:
- *   - Mostly fields
- *   - Clusters of forest
- *   - Some mountains
- *   - A lake (shallow water + ocean core)
- */
-function createSampleMap(): GameMap {
-  const map = GameMap.create(16, 16, TileType.Field);
-
-  // -- Forest clusters (upper-left and mid-right) --
-  const forestTiles: [number, number][] = [
-    // Upper-left cluster
-    [1, 1], [2, 1], [3, 1],
-    [1, 2], [2, 2], [3, 2], [4, 2],
-    [2, 3], [3, 3],
-    // Mid-right cluster
-    [11, 5], [12, 5], [13, 5],
-    [11, 6], [12, 6], [13, 6], [14, 6],
-    [12, 7], [13, 7], [14, 7],
-    [13, 8],
-    // Small southern patch
-    [5, 12], [6, 12], [6, 13], [7, 13],
-  ];
-  for (const [x, y] of forestTiles) {
-    map.setTile(x, y, TileType.Forest);
-  }
-
-  // -- Mountain range (diagonal from center-left to upper-right) --
-  const mountainTiles: [number, number][] = [
-    [6, 4], [7, 3], [8, 3], [9, 2], [10, 2],
-    [7, 4], [8, 4],
-    [10, 1], [11, 1],
-    // Small southern mountain
-    [2, 10], [3, 10], [3, 11],
-  ];
-  for (const [x, y] of mountainTiles) {
-    map.setTile(x, y, TileType.Mountain);
-  }
-
-  // -- Lake (shallow water ring with ocean core, lower-right area) --
-  const shallowWaterTiles: [number, number][] = [
-    [9, 10], [10, 9], [11, 9], [12, 9],
-    [9, 11], [13, 10],
-    [9, 12], [13, 11],
-    [10, 13], [11, 13], [12, 13], [13, 12],
-  ];
-  for (const [x, y] of shallowWaterTiles) {
-    map.setTile(x, y, TileType.ShallowWater);
-  }
-
-  const oceanTiles: [number, number][] = [
-    [10, 10], [11, 10], [12, 10],
-    [10, 11], [11, 11], [12, 11],
-    [10, 12], [11, 12], [12, 12],
-  ];
-  for (const [x, y] of oceanTiles) {
-    map.setTile(x, y, TileType.Ocean);
-  }
-
-  return map;
-}
-
-/** Default game config for the sample 2-player game. */
-const SAMPLE_CONFIG: GameConfig = {
+/** Default game config for quick-start (will be replaced by GameSetup). */
+const DEFAULT_CONFIG: GameConfig = {
   mapSize: 16,
   waterLevel: 0.3,
   tribes: ['xinxi', 'imperius'],
@@ -84,37 +18,39 @@ const SAMPLE_CONFIG: GameConfig = {
   turnLimit: null,
 };
 
-/**
- * Mutable selection state shared between the PixiJS game loop
- * and the Preact component via a ref.
- */
-interface SelectionState {
-  selectedUnitId: string | null;
-  movementRange: Set<string> | null;
-}
-
 export function App() {
   const canvasRef = useRef<HTMLDivElement>(null);
-
-  // Preact state for the turn UI -- drives re-renders when turn changes
-  const [currentPlayer, setCurrentPlayer] = useState(0);
-  const [turnNumber, setTurnNumber] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Refs so that the PixiJS game loop and the onEndTurn callback can share
-  // mutable state without causing Preact re-renders on every selection change.
-  const gameStateRef = useRef<GameState | null>(null);
   const rendererRef = useRef<GameRenderer | null>(null);
-  const selectionRef = useRef<SelectionState>({
-    selectedUnitId: null,
-    movementRange: null,
-  });
   const refreshDisplayRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    if (!canvasRef.current) return;
+  // Zustand store
+  const gamePhase = useGameStore(s => s.gamePhase);
+  const gameState = useGameStore(s => s.gameState);
+  const currentPlayer = useGameStore(s => s.currentPlayer);
+  const turnNumber = useGameStore(s => s.turnNumber);
+  const initGame = useGameStore(s => s.initGame);
+  const endTurn = useGameStore(s => s.endTurn);
+  const selectUnit = useGameStore(s => s.selectUnit);
+  const selectCity = useGameStore(s => s.selectCity);
+  const deselect = useGameStore(s => s.deselect);
+  const moveSelectedUnit = useGameStore(s => s.moveSelectedUnit);
+  const attackUnit = useGameStore(s => s.attackUnit);
 
+  // Initialize game on mount (auto-start with default config for now)
+  useEffect(() => {
+    if (gamePhase === 'setup') {
+      initGame(DEFAULT_CONFIG, 42);
+    }
+  }, []);
+
+  // Set up PixiJS when gameState becomes available
+  useEffect(() => {
+    if (!canvasRef.current || !gameState) return;
+
+    // Capture non-null reference for closures
+    const gs = gameState;
     const app = new Application();
     let inputHandler: InputHandler | undefined;
 
@@ -126,33 +62,7 @@ export function App() {
       });
       canvasRef.current!.appendChild(app.canvas);
 
-      const gameMap = createSampleMap();
-
-      // --- Game state ---
-      resetUnitIdCounter();
-      const gameState = new GameState(gameMap, SAMPLE_CONFIG);
-      gameStateRef.current = gameState;
-
-      // Place starter units: Player 0 (blue) on the left, Player 1 (red) on the right
-      const starterUnits = [
-        // Player 0 warriors (left side)
-        createUnit(UnitType.Warrior, 0, 0, 5),
-        createUnit(UnitType.Warrior, 0, 1, 7),
-        createUnit(UnitType.Warrior, 0, 0, 9),
-        createUnit(UnitType.Rider,   0, 2, 6),
-        // Player 1 warriors (right side)
-        createUnit(UnitType.Warrior, 1, 15, 5),
-        createUnit(UnitType.Warrior, 1, 14, 7),
-        createUnit(UnitType.Warrior, 1, 15, 9),
-        createUnit(UnitType.Rider,   1, 13, 6),
-      ];
-
-      for (const unit of starterUnits) {
-        gameState.addUnit(unit);
-      }
-
-      // --- Selection state (mutable via ref) ---
-      const selection = selectionRef.current;
+      const gameMap = gs.map;
 
       // --- Renderer ---
       const renderer = new GameRenderer(app, gameMap);
@@ -161,20 +71,25 @@ export function App() {
 
       /** Refresh the unit and overlay rendering. */
       function refreshDisplay(): void {
-        const sel = selectionRef.current;
-        const selectedUnit = sel.selectedUnitId !== null
-          ? gameState.getUnit(sel.selectedUnitId) ?? null
+        const store = useGameStore.getState();
+        const selectedUnit = store.selectedUnitId !== null
+          ? gs.getUnit(store.selectedUnitId) ?? null
           : null;
         const selectedCoord = selectedUnit !== null
           ? { x: selectedUnit.x, y: selectedUnit.y }
           : null;
 
-        renderer.renderUnits(gameState.getAllUnits(), sel.selectedUnitId);
-        renderer.renderOverlay(sel.movementRange, selectedCoord);
+        renderer.renderUnits(gs.getAllUnits(), store.selectedUnitId);
+        renderer.renderOverlay(store.movementRange, selectedCoord);
       }
 
       refreshDisplayRef.current = refreshDisplay;
       refreshDisplay();
+
+      // Subscribe to store changes to auto-refresh display
+      const unsub = useGameStore.subscribe(() => {
+        refreshDisplay();
+      });
 
       // --- Camera & input ---
       const camera = new Camera();
@@ -192,47 +107,54 @@ export function App() {
       function onTileTap(worldX: number, worldY: number): void {
         const gridCoord = isoToGrid(worldX, worldY, gameMap.width, gameMap.height);
         if (gridCoord === null || !gameMap.isInBounds(gridCoord.x, gridCoord.y)) {
-          // Clicked outside map: deselect
-          selection.selectedUnitId = null;
-          selection.movementRange = null;
-          refreshDisplay();
+          deselect();
           return;
         }
         const tileX = gridCoord.x;
         const tileY = gridCoord.y;
 
+        const store = useGameStore.getState();
+
         // If a unit is selected and the clicked tile is in movement range, move
-        if (selection.selectedUnitId !== null && selection.movementRange !== null) {
+        if (store.selectedUnitId !== null && store.movementRange !== null) {
           const key = `${tileX},${tileY}`;
-          if (selection.movementRange.has(key)) {
-            gameState.moveUnit(selection.selectedUnitId, tileX, tileY);
-            selection.selectedUnitId = null;
-            selection.movementRange = null;
-            refreshDisplay();
+          if (store.movementRange.has(key)) {
+            moveSelectedUnit(tileX, tileY);
             return;
           }
         }
 
-        // Check if there's a unit at the clicked tile
-        const unitAtTile = gameState.getUnitAt(tileX, tileY);
-
-        if (unitAtTile !== undefined && unitAtTile.owner === gameState.getCurrentPlayer()) {
-          // Select this unit (only current player's units are selectable)
-          if (!unitAtTile.hasMoved) {
-            selection.selectedUnitId = unitAtTile.id;
-            selection.movementRange = gameState.getMovementRange(unitAtTile.id);
-          } else {
-            // Unit already moved; just highlight it, no movement range
-            selection.selectedUnitId = unitAtTile.id;
-            selection.movementRange = null;
+        // If a unit is selected and we click an enemy in range, show battle preview / attack
+        if (store.selectedUnitId !== null) {
+          const enemyUnit = gs.getUnitAt(tileX, tileY);
+          if (enemyUnit && enemyUnit.owner !== gs.getCurrentPlayer()) {
+            const attacker = gs.getUnit(store.selectedUnitId);
+            if (attacker && !attacker.hasAttacked) {
+              const dist = Math.max(Math.abs(attacker.x - tileX), Math.abs(attacker.y - tileY));
+              if (dist <= attacker.range) {
+                // Direct attack on tap (battle preview via long-press is future work)
+                attackUnit(tileX, tileY);
+                return;
+              }
+            }
           }
-        } else {
-          // Clicked empty tile or enemy unit: deselect
-          selection.selectedUnitId = null;
-          selection.movementRange = null;
         }
 
-        refreshDisplay();
+        // Check if there's a unit at the clicked tile
+        const unitAtTile = gs.getUnitAt(tileX, tileY);
+
+        if (unitAtTile !== undefined && unitAtTile.owner === gs.getCurrentPlayer()) {
+          selectUnit(unitAtTile.id);
+        } else {
+          // Check if there's a city
+          const city = gs.getCityAt(tileX, tileY);
+          const playerTribe = gs.getTribeForPlayer(gs.getCurrentPlayer());
+          if (city && city.owner === playerTribe) {
+            selectCity({ x: tileX, y: tileY });
+          } else {
+            deselect();
+          }
+        }
       }
 
       inputHandler = new InputHandler(
@@ -243,9 +165,15 @@ export function App() {
         () => camera.applyTransform(renderer.mapContainer),
         onTileTap,
       );
+
+      setLoading(false);
+
+      // Return cleanup for the subscription
+      return unsub;
     };
 
-    init().then(() => setLoading(false)).catch((err: unknown) => {
+    let unsub: (() => void) | undefined;
+    init().then((u) => { unsub = u; }).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message + '\n' + err.stack : String(err);
       setError(msg);
       setLoading(false);
@@ -253,35 +181,19 @@ export function App() {
     });
 
     return () => {
+      unsub?.();
       inputHandler?.destroy();
       rendererRef.current?.destroy();
       rendererRef.current = null;
-      gameStateRef.current = null;
       refreshDisplayRef.current = null;
       app.destroy(true);
     };
-  }, []);
+  }, [gameState]);
 
   /** End Turn button handler. */
   const handleEndTurn = useCallback(() => {
-    const gameState = gameStateRef.current;
-    if (!gameState) return;
-
-    // Clear selection
-    const selection = selectionRef.current;
-    selection.selectedUnitId = null;
-    selection.movementRange = null;
-
-    // Advance to the next player
-    gameState.endTurn();
-
-    // Update Preact state to re-render the TurnUI
-    setCurrentPlayer(gameState.getCurrentPlayer());
-    setTurnNumber(gameState.getTurnNumber());
-
-    // Refresh PixiJS display
-    refreshDisplayRef.current?.();
-  }, []);
+    endTurn();
+  }, [endTurn]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
