@@ -116,15 +116,23 @@ export interface UnitDefinition {
 
 /** A live unit instance on the board. */
 export interface UnitInstance {
+  readonly id: string;
   readonly type: UnitType;
-  readonly owner: TribeId;
+  readonly owner: number;  // player index (0, 1, ...)
+  readonly x: number;
+  readonly y: number;
   readonly currentHp: number;
   readonly maxHp: number;
+  readonly atk: number;
+  readonly def: number;
+  readonly movement: number;
+  readonly range: number;
   readonly kills: number;
   readonly isVeteran: boolean;
   readonly hasMoved: boolean;
   readonly hasAttacked: boolean;
   readonly isHidden: boolean;
+  readonly skills: readonly UnitSkill[];
   readonly carriedUnit?: UnitInstance;  // Land unit inside a naval Carry unit
 }
 

@@ -22,6 +22,9 @@ interface PointerState {
   y: number;
 }
 
+/** Maximum pointer movement (in px) to still count as a tap, not a drag. */
+const TAP_THRESHOLD = 8;
+
 export class InputHandler {
   private readonly camera: Camera;
   private readonly canvas: HTMLCanvasElement;
@@ -32,6 +35,12 @@ export class InputHandler {
    * renderer / PixiJS container.
    */
   private readonly onCameraChange: () => void;
+
+  /**
+   * Optional callback invoked when the user taps (clicks without dragging)
+   * on the canvas. The coordinates are in *world* space (map pixels).
+   */
+  private readonly onTap: ((worldX: number, worldY: number) => void) | null;
 
   /** Map pixel dimensions of the game map in world space. */
   private readonly mapWidth: number;
@@ -52,6 +61,11 @@ export class InputHandler {
   private pinchStartDist = 0;
   private pinchStartZoom = 1;
 
+  // -- Tap detection --
+  private tapPointerId = -1;
+  private tapStartX = 0;
+  private tapStartY = 0;
+
   // -- Bound handler references (so we can removeEventListener) --
   private readonly handlePointerDown: (e: PointerEvent) => void;
   private readonly handlePointerMove: (e: PointerEvent) => void;
@@ -65,12 +79,14 @@ export class InputHandler {
     mapWidth: number,
     mapHeight: number,
     onCameraChange: () => void,
+    onTap?: (worldX: number, worldY: number) => void,
   ) {
     this.camera = camera;
     this.canvas = canvas;
     this.mapWidth = mapWidth;
     this.mapHeight = mapHeight;
     this.onCameraChange = onCameraChange;
+    this.onTap = onTap ?? null;
     this.viewportWidth = canvas.clientWidth;
     this.viewportHeight = canvas.clientHeight;
 
@@ -123,8 +139,11 @@ export class InputHandler {
     this.pointers.set(e.pointerId, pt);
 
     if (this.pointers.size === 1) {
-      // Single-finger / mouse: start pan.
+      // Single-finger / mouse: start pan and record for tap detection.
       this.camera.startDrag(e.clientX, e.clientY);
+      this.tapPointerId = e.pointerId;
+      this.tapStartX = e.clientX;
+      this.tapStartY = e.clientY;
     } else if (this.pointers.size === 2) {
       // Second finger down: transition from pan to pinch.
       this.camera.endDrag();
@@ -151,6 +170,23 @@ export class InputHandler {
   }
 
   private onPointerUp(e: PointerEvent): void {
+    // Detect tap: same pointer, minimal movement.
+    if (
+      e.pointerId === this.tapPointerId &&
+      this.pointers.size === 1 &&
+      this.onTap !== null
+    ) {
+      const dx = e.clientX - this.tapStartX;
+      const dy = e.clientY - this.tapStartY;
+      if (Math.abs(dx) < TAP_THRESHOLD && Math.abs(dy) < TAP_THRESHOLD) {
+        // Convert screen coords to world coords using camera offset/zoom.
+        const worldX = (e.clientX - this.camera.x) / this.camera.zoom;
+        const worldY = (e.clientY - this.camera.y) / this.camera.zoom;
+        this.onTap(worldX, worldY);
+      }
+    }
+    this.tapPointerId = -1;
+
     this.pointers.delete(e.pointerId);
 
     if (this.pointers.size < 2) {
