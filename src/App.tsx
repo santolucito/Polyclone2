@@ -11,17 +11,7 @@ import { TechTreePanel } from './ui/TechTreePanel.js';
 import { LevelUpModal } from './ui/LevelUpModal.js';
 import { CityPanel } from './ui/CityPanel.js';
 import { BattlePreview } from './ui/BattlePreview.js';
-import type { GameConfig } from './core/types.js';
-
-/** Default game config for quick-start (will be replaced by GameSetup). */
-const DEFAULT_CONFIG: GameConfig = {
-  mapSize: 16,
-  waterLevel: 0.3,
-  tribes: ['xinxi', 'imperius'],
-  difficulty: 'normal',
-  winCondition: 'domination',
-  turnLimit: null,
-};
+import { GameSetup } from './ui/GameSetup.js';
 
 export function App() {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -33,19 +23,11 @@ export function App() {
   // Zustand store
   const gamePhase = useGameStore(s => s.gamePhase);
   const gameState = useGameStore(s => s.gameState);
-  const initGame = useGameStore(s => s.initGame);
   const selectUnit = useGameStore(s => s.selectUnit);
   const selectCity = useGameStore(s => s.selectCity);
   const deselect = useGameStore(s => s.deselect);
   const moveSelectedUnit = useGameStore(s => s.moveSelectedUnit);
   const attackUnit = useGameStore(s => s.attackUnit);
-
-  // Initialize game on mount (auto-start with default config for now)
-  useEffect(() => {
-    if (gamePhase === 'setup') {
-      initGame(DEFAULT_CONFIG, 42);
-    }
-  }, []);
 
   // Set up PixiJS when gameState becomes available
   useEffect(() => {
@@ -191,6 +173,11 @@ export function App() {
       app.destroy(true);
     };
   }, [gameState]);
+
+  // Show setup screen before game starts
+  if (gamePhase === 'setup') {
+    return <GameSetup />;
+  }
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>

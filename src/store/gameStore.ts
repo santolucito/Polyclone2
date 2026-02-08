@@ -18,6 +18,7 @@ import { generateMap } from '../core/MapGen.js';
 import { createCity } from '../core/City.js';
 import { createUnit, resetUnitIdCounter } from '../core/UnitFactory.js';
 import { previewCombat, getDefenseBonusForTerrain, getCityDefenseBonus } from '../core/Combat.js';
+import { executeAITurn } from '../core/AI.js';
 
 /** Battle preview data shown in UI. */
 export interface BattlePreviewData {
@@ -186,9 +187,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     gameState.endTurn();
 
-    // Auto-skip AI turns (players 1+ are AI)
+    // Execute AI turns (players 1+ are AI)
     while (gameState.getCurrentPlayer() !== 0 && gameState.getWinner() < 0) {
-      // AI turn placeholder — will be filled by AI module
+      executeAITurn(gameState);
       gameState.endTurn();
     }
 
