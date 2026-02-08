@@ -399,6 +399,35 @@ describe('GameState — turn management', () => {
 
     expect(state.getUnit(unit.id)!.hasMoved).toBe(false);
   });
+
+  it('starts at turn number 1', () => {
+    const state = makeState();
+    expect(state.getTurnNumber()).toBe(1);
+  });
+
+  it('turn number stays at 1 after player 0 ends turn (mid-round)', () => {
+    const state = makeState();
+    state.endTurn(); // -> player 1 (still turn 1)
+    expect(state.getTurnNumber()).toBe(1);
+  });
+
+  it('turn number increments to 2 after a full round (both players end turn)', () => {
+    const state = makeState();
+    state.endTurn(); // -> player 1
+    state.endTurn(); // -> player 0 (turn 2)
+    expect(state.getTurnNumber()).toBe(2);
+  });
+
+  it('turn number increments correctly over multiple rounds', () => {
+    const state = makeState();
+    // 4 endTurn calls = 2 full rounds -> turn 3
+    state.endTurn(); // -> player 1 (turn 1)
+    state.endTurn(); // -> player 0 (turn 2)
+    state.endTurn(); // -> player 1 (turn 2)
+    state.endTurn(); // -> player 0 (turn 3)
+    expect(state.getTurnNumber()).toBe(3);
+    expect(state.getCurrentPlayer()).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

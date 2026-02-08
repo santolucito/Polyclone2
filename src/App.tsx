@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { Application } from 'pixi.js';
 import { GameMap } from './core/GameMap.js';
 import { GameState } from './core/GameState.js';
@@ -9,6 +9,7 @@ import { GameRenderer } from './render/GameRenderer.js';
 import { Camera } from './input/Camera.js';
 import { InputHandler } from './input/InputHandler.js';
 import { TILE_SIZE } from './render/constants.js';
+import { TurnUI } from './ui/TurnUI.js';
 
 /**
  * Build a sample 16x16 map with mixed terrain:
@@ -83,14 +84,36 @@ const SAMPLE_CONFIG: GameConfig = {
   turnLimit: null,
 };
 
+/**
+ * Mutable selection state shared between the PixiJS game loop
+ * and the Preact component via a ref.
+ */
+interface SelectionState {
+  selectedUnitId: string | null;
+  movementRange: Set<string> | null;
+}
+
 export function App() {
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Preact state for the turn UI -- drives re-renders when turn changes
+  const [currentPlayer, setCurrentPlayer] = useState(0);
+  const [turnNumber, setTurnNumber] = useState(1);
+
+  // Refs so that the PixiJS game loop and the onEndTurn callback can share
+  // mutable state without causing Preact re-renders on every selection change.
+  const gameStateRef = useRef<GameState | null>(null);
+  const rendererRef = useRef<GameRenderer | null>(null);
+  const selectionRef = useRef<SelectionState>({
+    selectedUnitId: null,
+    movementRange: null,
+  });
+  const refreshDisplayRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
 
     const app = new Application();
-    let renderer: GameRenderer | undefined;
     let inputHandler: InputHandler | undefined;
 
     const init = async () => {
@@ -106,6 +129,7 @@ export function App() {
       // --- Game state ---
       resetUnitIdCounter();
       const gameState = new GameState(gameMap, SAMPLE_CONFIG);
+      gameStateRef.current = gameState;
 
       // Place starter units: Player 0 (blue) on the left, Player 1 (red) on the right
       const starterUnits = [
@@ -125,29 +149,29 @@ export function App() {
         gameState.addUnit(unit);
       }
 
-      // --- Selection state ---
-      let selectedUnitId: string | null = null;
-      let movementRange: Set<string> | null = null;
+      // --- Selection state (mutable via ref) ---
+      const selection = selectionRef.current;
 
       // --- Renderer ---
-      renderer = new GameRenderer(app, gameMap);
+      const renderer = new GameRenderer(app, gameMap);
+      rendererRef.current = renderer;
       renderer.render();
 
       /** Refresh the unit and overlay rendering. */
       function refreshDisplay(): void {
-        if (!renderer) return;
-
-        const selectedUnit = selectedUnitId !== null
-          ? gameState.getUnit(selectedUnitId) ?? null
+        const sel = selectionRef.current;
+        const selectedUnit = sel.selectedUnitId !== null
+          ? gameState.getUnit(sel.selectedUnitId) ?? null
           : null;
         const selectedCoord = selectedUnit !== null
           ? { x: selectedUnit.x, y: selectedUnit.y }
           : null;
 
-        renderer.renderUnits(gameState.getAllUnits(), selectedUnitId);
-        renderer.renderOverlay(movementRange, selectedCoord);
+        renderer.renderUnits(gameState.getAllUnits(), sel.selectedUnitId);
+        renderer.renderOverlay(sel.movementRange, selectedCoord);
       }
 
+      refreshDisplayRef.current = refreshDisplay;
       refreshDisplay();
 
       // --- Camera & input ---
@@ -170,19 +194,19 @@ export function App() {
 
         if (!gameMap.isInBounds(tileX, tileY)) {
           // Clicked outside map: deselect
-          selectedUnitId = null;
-          movementRange = null;
+          selection.selectedUnitId = null;
+          selection.movementRange = null;
           refreshDisplay();
           return;
         }
 
         // If a unit is selected and the clicked tile is in movement range, move
-        if (selectedUnitId !== null && movementRange !== null) {
+        if (selection.selectedUnitId !== null && selection.movementRange !== null) {
           const key = `${tileX},${tileY}`;
-          if (movementRange.has(key)) {
-            gameState.moveUnit(selectedUnitId, tileX, tileY);
-            selectedUnitId = null;
-            movementRange = null;
+          if (selection.movementRange.has(key)) {
+            gameState.moveUnit(selection.selectedUnitId, tileX, tileY);
+            selection.selectedUnitId = null;
+            selection.movementRange = null;
             refreshDisplay();
             return;
           }
@@ -192,19 +216,19 @@ export function App() {
         const unitAtTile = gameState.getUnitAt(tileX, tileY);
 
         if (unitAtTile !== undefined && unitAtTile.owner === gameState.getCurrentPlayer()) {
-          // Select this unit
+          // Select this unit (only current player's units are selectable)
           if (!unitAtTile.hasMoved) {
-            selectedUnitId = unitAtTile.id;
-            movementRange = gameState.getMovementRange(unitAtTile.id);
+            selection.selectedUnitId = unitAtTile.id;
+            selection.movementRange = gameState.getMovementRange(unitAtTile.id);
           } else {
             // Unit already moved; just highlight it, no movement range
-            selectedUnitId = unitAtTile.id;
-            movementRange = null;
+            selection.selectedUnitId = unitAtTile.id;
+            selection.movementRange = null;
           }
         } else {
           // Clicked empty tile or enemy unit: deselect
-          selectedUnitId = null;
-          movementRange = null;
+          selection.selectedUnitId = null;
+          selection.movementRange = null;
         }
 
         refreshDisplay();
@@ -215,7 +239,7 @@ export function App() {
         app.canvas,
         mapPixelWidth,
         mapPixelHeight,
-        () => camera.applyTransform(renderer!.mapContainer),
+        () => camera.applyTransform(renderer.mapContainer),
         onTileTap,
       );
     };
@@ -224,19 +248,43 @@ export function App() {
 
     return () => {
       inputHandler?.destroy();
-      renderer?.destroy();
+      rendererRef.current?.destroy();
+      rendererRef.current = null;
+      gameStateRef.current = null;
+      refreshDisplayRef.current = null;
       app.destroy(true);
     };
+  }, []);
+
+  /** End Turn button handler. */
+  const handleEndTurn = useCallback(() => {
+    const gameState = gameStateRef.current;
+    if (!gameState) return;
+
+    // Clear selection
+    const selection = selectionRef.current;
+    selection.selectedUnitId = null;
+    selection.movementRange = null;
+
+    // Advance to the next player
+    gameState.endTurn();
+
+    // Update Preact state to re-render the TurnUI
+    setCurrentPlayer(gameState.getCurrentPlayer());
+    setTurnNumber(gameState.getTurnNumber());
+
+    // Refresh PixiJS display
+    refreshDisplayRef.current?.();
   }, []);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={canvasRef} id="game-canvas" style={{ width: '100%', height: '100%' }} />
-      <div id="ui-overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', pointerEvents: 'none' }}>
-        <div style={{ padding: '12px 16px', color: '#fff', fontFamily: 'sans-serif', fontSize: '14px', pointerEvents: 'auto' }}>
-          PolyClone2 — Phase 1: Unit Placement & Movement
-        </div>
-      </div>
+      <TurnUI
+        currentPlayer={currentPlayer}
+        turnNumber={turnNumber}
+        onEndTurn={handleEndTurn}
+      />
     </div>
   );
 }

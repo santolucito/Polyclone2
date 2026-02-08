@@ -15,6 +15,7 @@ export class GameState {
   readonly config: GameConfig;
   readonly playerCount: number;
   private currentPlayer: number = 0;
+  private turnNumber: number = 1;
 
   /** All live units, keyed by unit ID. */
   private readonly units: Map<string, UnitInstance> = new Map();
@@ -34,9 +35,18 @@ export class GameState {
     return this.currentPlayer;
   }
 
+  /** Returns the current turn number (increments after all players have taken a turn). */
+  getTurnNumber(): number {
+    return this.turnNumber;
+  }
+
   /** Advances to the next player's turn and resets all their units' moved/attacked flags. */
   endTurn(): void {
     this.currentPlayer = (this.currentPlayer + 1) % this.playerCount;
+    // Increment turn number when it wraps back to player 0 (a full round completed)
+    if (this.currentPlayer === 0) {
+      this.turnNumber++;
+    }
     // Reset moved/attacked flags for the new current player's units
     for (const [id, unit] of this.units) {
       if (unit.owner === this.currentPlayer) {
