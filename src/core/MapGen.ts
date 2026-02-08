@@ -38,8 +38,8 @@ export class SeededRandom {
   }
 }
 
-/** Terrain modifiers for each tribe. */
-const TRIBE_MODIFIERS: Record<TribeId, TerrainModifiers> = {
+/** Terrain modifiers for each tribe. Neutral has no modifiers. */
+const TRIBE_MODIFIERS: Partial<Record<TribeId, TerrainModifiers>> = {
   xinxi:    { forest: 1.0, mountain: 1.5, fruit: 1.0, crop: 1.0, animal: 1.0, metal: 1.5, fish: 1.0 },
   imperius: { forest: 1.0, mountain: 1.0, fruit: 2.0, crop: 1.0, animal: 0.5, metal: 1.0, fish: 1.0 },
   bardur:   { forest: 0.8, mountain: 1.0, fruit: 1.5, crop: 0.0, animal: 1.0, metal: 1.0, fish: 1.0 },
@@ -316,6 +316,7 @@ function averageModifiers(tribes: readonly TribeId[]): TerrainModifiers {
   const sum = { forest: 0, mountain: 0, fruit: 0, crop: 0, animal: 0, metal: 0, fish: 0 };
   for (const tribe of tribes) {
     const mods = TRIBE_MODIFIERS[tribe];
+    if (!mods) continue;
     sum.forest += mods.forest;
     sum.mountain += mods.mountain;
     sum.fruit += mods.fruit;

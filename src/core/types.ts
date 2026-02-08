@@ -194,8 +194,8 @@ export interface TechDefinition {
 // Tribes
 // ---------------------------------------------------------------------------
 
-/** The 4 starter tribes. */
-export type TribeId = 'xinxi' | 'imperius' | 'bardur' | 'oumaji';
+/** The 4 starter tribes plus 'neutral' for unclaimed villages. */
+export type TribeId = 'xinxi' | 'imperius' | 'bardur' | 'oumaji' | 'neutral';
 
 /** Multipliers applied to base terrain/resource spawn rates. */
 export interface TerrainModifiers {

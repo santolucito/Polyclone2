@@ -172,6 +172,7 @@ const TRIBE_COLORS: Record<string, number> = {
   imperius: 0x3f51b5,
   bardur: 0x795548,
   oumaji: 0xffc107,
+  neutral: 0xcccccc,
 };
 
 /** Creates a PixiJS Graphics for a city: a thick colored diamond border around the tile. */

@@ -37,7 +37,7 @@ const AI_DIFFICULTY_BONUS: Record<Difficulty, number> = {
 };
 
 /** Starting tech per tribe. */
-const TRIBE_STARTING_TECH: Record<TribeId, TechId> = {
+const TRIBE_STARTING_TECH: Partial<Record<TribeId, TechId>> = {
   xinxi: 'climbing',
   imperius: 'organization',
   bardur: 'hunting',
@@ -199,6 +199,15 @@ export class GameState {
   getCityCountForPlayer(player: number): number {
     const tribeId = this.config.tribes[player];
     return this.cities.filter(c => c.owner === tribeId).length;
+  }
+
+  /** Capture a city: change its owner to the given tribe. */
+  captureCity(x: number, y: number, newOwner: TribeId): boolean {
+    const city = this.getCityAt(x, y);
+    if (!city) return false;
+    if (city.owner === newOwner) return false;
+    this.updateCity({ ...city, owner: newOwner, isCapital: false });
+    return true;
   }
 
   /** Update a city in-place (replaces the city at the same position). */
@@ -433,6 +442,15 @@ export class GameState {
       y: toY,
       hasMoved: true,
     });
+
+    // Capture city at destination if enemy or neutral
+    const city = this.getCityAt(toX, toY);
+    if (city) {
+      const ownerTribe = this.getTribeForPlayer(unit.owner);
+      if (city.owner !== ownerTribe) {
+        this.captureCity(toX, toY, ownerTribe);
+      }
+    }
 
     return true;
   }

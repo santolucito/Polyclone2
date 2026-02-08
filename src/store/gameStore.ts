@@ -120,7 +120,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gameState.addUnit(unit);
     }
 
-    // Neutral villages are deferred — they're map markers for future capture mechanics
+    // Place neutral villages
+    for (let i = 0; i < result.villages.length; i++) {
+      const pos = result.villages[i];
+      const village = createCity('neutral', pos, `Village ${i + 1}`, false);
+      gameState.addCity(village);
+    }
 
     set({
       gamePhase: 'playing',
