@@ -1,11 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { Application } from 'pixi.js';
 import { GameRenderer } from './render/GameRenderer.js';
 import { Camera } from './input/Camera.js';
 import { InputHandler } from './input/InputHandler.js';
 import { getIsoBounds, isoToGrid } from './render/CoordinateUtils.js';
 import { useGameStore } from './store/gameStore.js';
-import { TurnUI } from './ui/TurnUI.js';
+import { TopBar } from './ui/TopBar.js';
+import { UnitInfoPanel } from './ui/UnitInfoPanel.js';
+import { TechTreePanel } from './ui/TechTreePanel.js';
+import { LevelUpModal } from './ui/LevelUpModal.js';
+import { CityPanel } from './ui/CityPanel.js';
+import { BattlePreview } from './ui/BattlePreview.js';
 import type { GameConfig } from './core/types.js';
 
 /** Default game config for quick-start (will be replaced by GameSetup). */
@@ -28,10 +33,7 @@ export function App() {
   // Zustand store
   const gamePhase = useGameStore(s => s.gamePhase);
   const gameState = useGameStore(s => s.gameState);
-  const currentPlayer = useGameStore(s => s.currentPlayer);
-  const turnNumber = useGameStore(s => s.turnNumber);
   const initGame = useGameStore(s => s.initGame);
-  const endTurn = useGameStore(s => s.endTurn);
   const selectUnit = useGameStore(s => s.selectUnit);
   const selectCity = useGameStore(s => s.selectCity);
   const deselect = useGameStore(s => s.deselect);
@@ -190,11 +192,6 @@ export function App() {
     };
   }, [gameState]);
 
-  /** End Turn button handler. */
-  const handleEndTurn = useCallback(() => {
-    endTurn();
-  }, [endTurn]);
-
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={canvasRef} id="game-canvas" style={{ width: '100%', height: '100%' }} />
@@ -215,11 +212,12 @@ export function App() {
           Loading...
         </div>
       )}
-      <TurnUI
-        currentPlayer={currentPlayer}
-        turnNumber={turnNumber}
-        onEndTurn={handleEndTurn}
-      />
+      <TopBar />
+      <UnitInfoPanel />
+      <CityPanel />
+      <BattlePreview />
+      <TechTreePanel />
+      <LevelUpModal />
     </div>
   );
 }
