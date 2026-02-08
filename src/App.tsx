@@ -63,6 +63,7 @@ export function App() {
           ? { x: selectedUnit.x, y: selectedUnit.y }
           : null;
 
+        renderer.renderCities(gs.getAllCities());
         renderer.renderUnits(gs.getAllUnits(), store.selectedUnitId);
         renderer.renderOverlay(store.movementRange, selectedCoord);
       }

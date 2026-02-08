@@ -5,16 +5,16 @@
  * tiles, overlays, and units, and provides lifecycle methods.
  */
 
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { GameMap } from '../core/GameMap.js';
-import { Coord, UnitInstance } from '../core/types.js';
+import { CityInstance, Coord, UnitInstance } from '../core/types.js';
 import { createTileGraphic } from './TileRenderer.js';
 import { renderUnitsToContainer } from './UnitRenderer.js';
 import {
   renderMovementOverlay,
   renderSelectionHighlight,
 } from './OverlayRenderer.js';
-import { isoToGrid } from './CoordinateUtils.js';
+import { isoToGrid, gridToIsoCenter, TILE_HEIGHT } from './CoordinateUtils.js';
 
 export class GameRenderer {
   private readonly app: Application;
@@ -25,6 +25,9 @@ export class GameRenderer {
 
   /** Layer for tile graphics. */
   private readonly tileLayer: Container;
+
+  /** Layer for city graphics (between tiles and overlays). */
+  private readonly cityLayer: Container;
 
   /** Layer for overlay graphics (movement range, selection). */
   private readonly overlayLayer: Container;
@@ -41,11 +44,13 @@ export class GameRenderer {
 
     this.mapContainer = new Container();
     this.tileLayer = new Container();
+    this.cityLayer = new Container();
     this.overlayLayer = new Container();
     this.unitLayer = new Container();
 
-    // Layer order: tiles -> overlays -> units
+    // Layer order: tiles -> cities -> overlays -> units
     this.mapContainer.addChild(this.tileLayer);
+    this.mapContainer.addChild(this.cityLayer);
     this.mapContainer.addChild(this.overlayLayer);
     this.mapContainer.addChild(this.unitLayer);
 
@@ -68,6 +73,17 @@ export class GameRenderer {
         this.tileLayer.addChild(graphic);
         this.tileGraphics.push(graphic);
       }
+    }
+  }
+
+  /**
+   * Render city markers on the map.
+   */
+  renderCities(cities: CityInstance[]): void {
+    this.clearCities();
+    for (const city of cities) {
+      const graphic = createCityGraphic(city, this.gameMap.height);
+      this.cityLayer.addChild(graphic);
     }
   }
 
@@ -120,6 +136,11 @@ export class GameRenderer {
     this.tileLayer.removeChildren();
   }
 
+  /** Remove all city graphics. */
+  private clearCities(): void {
+    this.cityLayer.removeChildren();
+  }
+
   /** Remove all overlay graphics. */
   private clearOverlay(): void {
     this.overlayLayer.removeChildren();
@@ -133,9 +154,65 @@ export class GameRenderer {
   /** Clean up: remove the map container from the stage and destroy it. */
   destroy(): void {
     this.clearTiles();
+    this.clearCities();
     this.clearOverlay();
     this.clearUnits();
     this.app.stage.removeChild(this.mapContainer);
     this.mapContainer.destroy();
   }
+}
+
+// ---------------------------------------------------------------------------
+// City rendering
+// ---------------------------------------------------------------------------
+
+/** Tribe -> fill color for city markers. */
+const TRIBE_COLORS: Record<string, number> = {
+  xinxi: 0xd13440,
+  imperius: 0x3f51b5,
+  bardur: 0x795548,
+  oumaji: 0xffc107,
+};
+
+/** Creates a PixiJS Container for a city marker on the map. */
+function createCityGraphic(city: CityInstance, mapHeight: number): Container {
+  const container = new Container();
+  const { cx, cy } = gridToIsoCenter(city.position.x, city.position.y, mapHeight);
+  container.position.set(cx, cy);
+
+  const fillColor = TRIBE_COLORS[city.owner] ?? 0x888888;
+  const size = TILE_HEIGHT * 0.55;
+
+  // City base: rounded square
+  const base = new Graphics();
+  base.roundRect(-size / 2, -size / 2, size, size, 3)
+    .fill({ color: fillColor })
+    .stroke({ width: 2, color: 0xffffff, alpha: 0.8 });
+  container.addChild(base);
+
+  // Capital marker: small diamond on top
+  if (city.isCapital) {
+    const star = new Graphics();
+    const s = 4;
+    star.moveTo(0, -size / 2 - s - 2)
+      .lineTo(s, -size / 2 - 2)
+      .lineTo(0, -size / 2 + s - 2)
+      .lineTo(-s, -size / 2 - 2)
+      .closePath()
+      .fill({ color: 0xffd700 });
+    container.addChild(star);
+  }
+
+  // Level text
+  const style = new TextStyle({
+    fontSize: 10,
+    fontFamily: 'monospace',
+    fontWeight: 'bold',
+    fill: 0xffffff,
+  });
+  const text = new Text({ text: String(city.level), style });
+  text.anchor.set(0.5, 0.5);
+  container.addChild(text);
+
+  return container;
 }
