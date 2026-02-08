@@ -1,0 +1,249 @@
+[
+  {
+    "id": "climbing",
+    "name": "Climbing",
+    "tier": 1,
+    "prerequisite": null,
+    "unlocks": [
+      { "kind": "ability", "ability": "Mountain movement" },
+      { "kind": "ability", "ability": "Mountain defense bonus" },
+      { "kind": "resource", "resourceType": "metal" }
+    ]
+  },
+  {
+    "id": "hunting",
+    "name": "Hunting",
+    "tier": 1,
+    "prerequisite": null,
+    "unlocks": [
+      { "kind": "action", "action": "Hunt Animals (+1 pop, 2 stars)" },
+      { "kind": "resource", "resourceType": "animal" }
+    ]
+  },
+  {
+    "id": "organization",
+    "name": "Organization",
+    "tier": 1,
+    "prerequisite": null,
+    "unlocks": [
+      { "kind": "action", "action": "Harvest Fruit (+1 pop, 2 stars)" },
+      { "kind": "resource", "resourceType": "crop" }
+    ]
+  },
+  {
+    "id": "riding",
+    "name": "Riding",
+    "tier": 1,
+    "prerequisite": null,
+    "unlocks": [
+      { "kind": "unit", "unitType": "rider" }
+    ]
+  },
+  {
+    "id": "fishing",
+    "name": "Fishing",
+    "tier": 1,
+    "prerequisite": null,
+    "unlocks": [
+      { "kind": "action", "action": "Fish (+1 pop, 2 stars)" },
+      { "kind": "building", "buildingType": "port" },
+      { "kind": "unit", "unitType": "raft" },
+      { "kind": "ability", "ability": "Shallow water movement" }
+    ]
+  },
+  {
+    "id": "mining",
+    "name": "Mining",
+    "tier": 2,
+    "prerequisite": "climbing",
+    "unlocks": [
+      { "kind": "building", "buildingType": "mine" }
+    ]
+  },
+  {
+    "id": "meditation",
+    "name": "Meditation",
+    "tier": 2,
+    "prerequisite": "climbing",
+    "unlocks": [
+      { "kind": "building", "buildingType": "mountainTemple" }
+    ]
+  },
+  {
+    "id": "archery",
+    "name": "Archery",
+    "tier": 2,
+    "prerequisite": "hunting",
+    "unlocks": [
+      { "kind": "unit", "unitType": "archer" },
+      { "kind": "ability", "ability": "Forest defense bonus" }
+    ]
+  },
+  {
+    "id": "forestry",
+    "name": "Forestry",
+    "tier": 2,
+    "prerequisite": "hunting",
+    "unlocks": [
+      { "kind": "building", "buildingType": "lumberHut" },
+      { "kind": "action", "action": "Clear Forest (+1 star)" }
+    ]
+  },
+  {
+    "id": "farming",
+    "name": "Farming",
+    "tier": 2,
+    "prerequisite": "organization",
+    "unlocks": [
+      { "kind": "building", "buildingType": "farm" }
+    ]
+  },
+  {
+    "id": "strategy",
+    "name": "Strategy",
+    "tier": 2,
+    "prerequisite": "organization",
+    "unlocks": [
+      { "kind": "unit", "unitType": "defender" },
+      { "kind": "ability", "ability": "Peace Treaty" }
+    ]
+  },
+  {
+    "id": "roads",
+    "name": "Roads",
+    "tier": 2,
+    "prerequisite": "riding",
+    "unlocks": [
+      { "kind": "building", "buildingType": "road" },
+      { "kind": "ability", "ability": "City connections" }
+    ]
+  },
+  {
+    "id": "freeSpirit",
+    "name": "Free Spirit",
+    "tier": 2,
+    "prerequisite": "riding",
+    "unlocks": [
+      { "kind": "building", "buildingType": "temple" },
+      { "kind": "action", "action": "Disband unit (refund half cost)" }
+    ]
+  },
+  {
+    "id": "sailing",
+    "name": "Sailing",
+    "tier": 2,
+    "prerequisite": "fishing",
+    "unlocks": [
+      { "kind": "unit", "unitType": "scout" },
+      { "kind": "ability", "ability": "Ocean movement" }
+    ]
+  },
+  {
+    "id": "ramming",
+    "name": "Ramming",
+    "tier": 2,
+    "prerequisite": "fishing",
+    "unlocks": [
+      { "kind": "unit", "unitType": "rammer" }
+    ]
+  },
+  {
+    "id": "smithery",
+    "name": "Smithery",
+    "tier": 3,
+    "prerequisite": "mining",
+    "unlocks": [
+      { "kind": "unit", "unitType": "swordsman" },
+      { "kind": "building", "buildingType": "forge" }
+    ]
+  },
+  {
+    "id": "philosophy",
+    "name": "Philosophy",
+    "tier": 3,
+    "prerequisite": "meditation",
+    "unlocks": [
+      { "kind": "unit", "unitType": "mindBender" },
+      { "kind": "ability", "ability": "Literacy (-33% tech costs)" }
+    ]
+  },
+  {
+    "id": "spiritualism",
+    "name": "Spiritualism",
+    "tier": 3,
+    "prerequisite": "archery",
+    "unlocks": [
+      { "kind": "building", "buildingType": "forestTemple" },
+      { "kind": "action", "action": "Grow Forest (5 stars, field -> forest)" }
+    ]
+  },
+  {
+    "id": "mathematics",
+    "name": "Mathematics",
+    "tier": 3,
+    "prerequisite": "forestry",
+    "unlocks": [
+      { "kind": "unit", "unitType": "catapult" },
+      { "kind": "building", "buildingType": "sawmill" }
+    ]
+  },
+  {
+    "id": "construction",
+    "name": "Construction",
+    "tier": 3,
+    "prerequisite": "farming",
+    "unlocks": [
+      { "kind": "building", "buildingType": "windmill" },
+      { "kind": "action", "action": "Burn Forest (5 stars, forest -> field with crop)" }
+    ]
+  },
+  {
+    "id": "diplomacy",
+    "name": "Diplomacy",
+    "tier": 3,
+    "prerequisite": "strategy",
+    "unlocks": [
+      { "kind": "unit", "unitType": "cloak" },
+      { "kind": "ability", "ability": "Embassy (+2 SPT)" },
+      { "kind": "ability", "ability": "Capital Vision" }
+    ]
+  },
+  {
+    "id": "trade",
+    "name": "Trade",
+    "tier": 3,
+    "prerequisite": "roads",
+    "unlocks": [
+      { "kind": "building", "buildingType": "market" }
+    ]
+  },
+  {
+    "id": "chivalry",
+    "name": "Chivalry",
+    "tier": 3,
+    "prerequisite": "freeSpirit",
+    "unlocks": [
+      { "kind": "unit", "unitType": "knight" }
+    ]
+  },
+  {
+    "id": "navigation",
+    "name": "Navigation",
+    "tier": 3,
+    "prerequisite": "sailing",
+    "unlocks": [
+      { "kind": "unit", "unitType": "bomber" },
+      { "kind": "action", "action": "Harvest Starfish (+8 stars)" }
+    ]
+  },
+  {
+    "id": "aquatism",
+    "name": "Aquatism",
+    "tier": 3,
+    "prerequisite": "ramming",
+    "unlocks": [
+      { "kind": "building", "buildingType": "waterTemple" },
+      { "kind": "ability", "ability": "Ocean defense bonus" }
+    ]
+  }
+]

@@ -1,0 +1,122 @@
+[
+  {
+    "type": "farm",
+    "name": "Farm",
+    "cost": 5,
+    "population": 2,
+    "placement": { "on": "field", "requiresResource": "crop" },
+    "tech": "farming"
+  },
+  {
+    "type": "mine",
+    "name": "Mine",
+    "cost": 5,
+    "population": 2,
+    "placement": { "on": "mountain", "requiresResource": "metal" },
+    "tech": "mining"
+  },
+  {
+    "type": "lumberHut",
+    "name": "Lumber Hut",
+    "cost": 3,
+    "population": 1,
+    "placement": { "on": "forest" },
+    "tech": "forestry"
+  },
+  {
+    "type": "sawmill",
+    "name": "Sawmill",
+    "cost": 5,
+    "population": "+1/adj lumberHut",
+    "placement": { "on": "field" },
+    "tech": "mathematics"
+  },
+  {
+    "type": "windmill",
+    "name": "Windmill",
+    "cost": 5,
+    "population": "+1/adj farm",
+    "placement": { "on": "field" },
+    "tech": "construction"
+  },
+  {
+    "type": "forge",
+    "name": "Forge",
+    "cost": 5,
+    "population": "+2/adj mine",
+    "placement": { "on": "field" },
+    "tech": "smithery"
+  },
+  {
+    "type": "market",
+    "name": "Market",
+    "cost": 5,
+    "population": "+1 SPT/adj production building",
+    "placement": { "on": "field" },
+    "tech": "trade"
+  },
+  {
+    "type": "port",
+    "name": "Port",
+    "cost": 7,
+    "population": 1,
+    "placement": { "on": "coastal" },
+    "tech": "fishing"
+  },
+  {
+    "type": "road",
+    "name": "Road",
+    "cost": 3,
+    "population": 0,
+    "placement": { "on": "any" },
+    "tech": "roads"
+  },
+  {
+    "type": "bridge",
+    "name": "Bridge",
+    "cost": 5,
+    "population": 0,
+    "placement": { "on": "shallowWater" },
+    "tech": "roads"
+  },
+  {
+    "type": "temple",
+    "name": "Temple",
+    "cost": 20,
+    "population": 1,
+    "placement": { "on": "field" },
+    "tech": "freeSpirit"
+  },
+  {
+    "type": "forestTemple",
+    "name": "Forest Temple",
+    "cost": 15,
+    "population": 1,
+    "placement": { "on": "forest" },
+    "tech": "spiritualism"
+  },
+  {
+    "type": "mountainTemple",
+    "name": "Mountain Temple",
+    "cost": 20,
+    "population": 1,
+    "placement": { "on": "mountain" },
+    "tech": "meditation"
+  },
+  {
+    "type": "waterTemple",
+    "name": "Water Temple",
+    "cost": 20,
+    "population": 1,
+    "placement": { "on": "shallowWater" },
+    "tech": "aquatism"
+  },
+  {
+    "type": "monument",
+    "name": "Monument",
+    "cost": 0,
+    "population": 3,
+    "placement": { "on": "any" },
+    "tech": "freeSpirit"
+  }
+]

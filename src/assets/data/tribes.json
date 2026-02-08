@@ -1,0 +1,66 @@
+[
+  {
+    "id": "xinxi",
+    "name": "Xin-Xi",
+    "color": "#d13440",
+    "startingTech": "climbing",
+    "startingUnit": "warrior",
+    "terrainModifiers": {
+      "forest": 1.0,
+      "mountain": 1.5,
+      "fruit": 1.0,
+      "crop": 1.0,
+      "animal": 1.0,
+      "metal": 1.5,
+      "fish": 1.0
+    }
+  },
+  {
+    "id": "imperius",
+    "name": "Imperius",
+    "color": "#3f51b5",
+    "startingTech": "organization",
+    "startingUnit": "warrior",
+    "terrainModifiers": {
+      "forest": 1.0,
+      "mountain": 1.0,
+      "fruit": 2.0,
+      "crop": 1.0,
+      "animal": 0.5,
+      "metal": 1.0,
+      "fish": 1.0
+    }
+  },
+  {
+    "id": "bardur",
+    "name": "Bardur",
+    "color": "#795548",
+    "startingTech": "hunting",
+    "startingUnit": "warrior",
+    "terrainModifiers": {
+      "forest": 0.8,
+      "mountain": 1.0,
+      "fruit": 1.5,
+      "crop": 0.0,
+      "animal": 1.0,
+      "metal": 1.0,
+      "fish": 1.0
+    }
+  },
+  {
+    "id": "oumaji",
+    "name": "Oumaji",
+    "color": "#ffc107",
+    "startingTech": "riding",
+    "startingUnit": "rider",
+    "terrainModifiers": {
+      "forest": 0.2,
+      "mountain": 0.5,
+      "fruit": 1.0,
+      "crop": 1.0,
+      "animal": 0.2,
+      "metal": 1.0,
+      "fish": 1.0
+    }
+  }
+]

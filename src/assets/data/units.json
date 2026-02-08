@@ -1,0 +1,212 @@
+[
+  {
+    "type": "warrior",
+    "name": "Warrior",
+    "isNaval": false,
+    "tech": "starting",
+    "stats": {
+      "cost": 2,
+      "hp": 10,
+      "atk": 2,
+      "def": 2,
+      "movement": 1,
+      "range": 1,
+      "skills": ["dash", "fortify"]
+    }
+  },
+  {
+    "type": "archer",
+    "name": "Archer",
+    "isNaval": false,
+    "tech": "archery",
+    "stats": {
+      "cost": 3,
+      "hp": 10,
+      "atk": 2,
+      "def": 1,
+      "movement": 1,
+      "range": 2,
+      "skills": ["dash", "fortify"]
+    }
+  },
+  {
+    "type": "defender",
+    "name": "Defender",
+    "isNaval": false,
+    "tech": "strategy",
+    "stats": {
+      "cost": 3,
+      "hp": 15,
+      "atk": 1,
+      "def": 3,
+      "movement": 1,
+      "range": 1,
+      "skills": ["fortify"]
+    }
+  },
+  {
+    "type": "rider",
+    "name": "Rider",
+    "isNaval": false,
+    "tech": "riding",
+    "stats": {
+      "cost": 3,
+      "hp": 10,
+      "atk": 2,
+      "def": 1,
+      "movement": 2,
+      "range": 1,
+      "skills": ["dash", "escape", "fortify"]
+    }
+  },
+  {
+    "type": "swordsman",
+    "name": "Swordsman",
+    "isNaval": false,
+    "tech": "smithery",
+    "stats": {
+      "cost": 5,
+      "hp": 15,
+      "atk": 3,
+      "def": 3,
+      "movement": 1,
+      "range": 1,
+      "skills": ["dash"]
+    }
+  },
+  {
+    "type": "mindBender",
+    "name": "Mind Bender",
+    "isNaval": false,
+    "tech": "philosophy",
+    "stats": {
+      "cost": 5,
+      "hp": 10,
+      "atk": 0,
+      "def": 1,
+      "movement": 1,
+      "range": 1,
+      "skills": ["heal", "convert", "stiff"]
+    }
+  },
+  {
+    "type": "catapult",
+    "name": "Catapult",
+    "isNaval": false,
+    "tech": "mathematics",
+    "stats": {
+      "cost": 8,
+      "hp": 10,
+      "atk": 4,
+      "def": 0,
+      "movement": 1,
+      "range": 3,
+      "skills": ["stiff"]
+    }
+  },
+  {
+    "type": "knight",
+    "name": "Knight",
+    "isNaval": false,
+    "tech": "chivalry",
+    "stats": {
+      "cost": 8,
+      "hp": 10,
+      "atk": 3.5,
+      "def": 1,
+      "movement": 3,
+      "range": 1,
+      "skills": ["dash", "persist", "fortify"]
+    }
+  },
+  {
+    "type": "cloak",
+    "name": "Cloak",
+    "isNaval": false,
+    "tech": "diplomacy",
+    "stats": {
+      "cost": 8,
+      "hp": 5,
+      "atk": 0,
+      "def": 0.5,
+      "movement": 2,
+      "range": 1,
+      "skills": ["hide", "creep", "infiltrate", "dash", "stiff", "scout"]
+    }
+  },
+  {
+    "type": "giant",
+    "name": "Giant",
+    "isNaval": false,
+    "tech": "cityReward",
+    "stats": {
+      "cost": null,
+      "hp": 40,
+      "atk": 5,
+      "def": 4,
+      "movement": 1,
+      "range": 1,
+      "skills": []
+    }
+  },
+  {
+    "type": "raft",
+    "name": "Raft",
+    "isNaval": true,
+    "tech": "sailing",
+    "stats": {
+      "cost": 0,
+      "hp": null,
+      "atk": 0,
+      "def": 1,
+      "movement": 2,
+      "range": 0,
+      "skills": ["water", "carry", "stiff"]
+    }
+  },
+  {
+    "type": "scout",
+    "name": "Scout Ship",
+    "isNaval": true,
+    "tech": "sailing",
+    "stats": {
+      "cost": 5,
+      "hp": null,
+      "atk": 2,
+      "def": 1,
+      "movement": 3,
+      "range": 2,
+      "skills": ["water", "dash", "carry", "scout"]
+    }
+  },
+  {
+    "type": "rammer",
+    "name": "Rammer",
+    "isNaval": true,
+    "tech": "ramming",
+    "stats": {
+      "cost": 5,
+      "hp": null,
+      "atk": 3,
+      "def": 3,
+      "movement": 3,
+      "range": 1,
+      "skills": ["water", "dash", "carry"]
+    }
+  },
+  {
+    "type": "bomber",
+    "name": "Bomber",
+    "isNaval": true,
+    "tech": "navigation",
+    "stats": {
+      "cost": 15,
+      "hp": null,
+      "atk": 3,
+      "def": 2,
+      "movement": 2,
+      "range": 3,
+      "skills": ["water", "carry", "splash", "stiff"]
+    }
+  }
+]
