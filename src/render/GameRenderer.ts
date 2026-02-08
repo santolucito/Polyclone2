@@ -14,7 +14,7 @@ import {
   renderMovementOverlay,
   renderSelectionHighlight,
 } from './OverlayRenderer.js';
-import { isoToGrid, gridToIsoCenter, TILE_HEIGHT } from './CoordinateUtils.js';
+import { isoToGrid, gridToIso, TILE_WIDTH, TILE_HEIGHT } from './CoordinateUtils.js';
 
 export class GameRenderer {
   private readonly app: Application;
@@ -174,45 +174,55 @@ const TRIBE_COLORS: Record<string, number> = {
   oumaji: 0xffc107,
 };
 
-/** Creates a PixiJS Container for a city marker on the map. */
-function createCityGraphic(city: CityInstance, mapHeight: number): Container {
-  const container = new Container();
-  const { cx, cy } = gridToIsoCenter(city.position.x, city.position.y, mapHeight);
-  container.position.set(cx, cy);
+/** Creates a PixiJS Graphics for a city: a thick colored diamond border around the tile. */
+function createCityGraphic(city: CityInstance, mapHeight: number): Graphics {
+  const g = new Graphics();
+  const { px, py } = gridToIso(city.position.x, city.position.y, mapHeight);
 
   const fillColor = TRIBE_COLORS[city.owner] ?? 0x888888;
-  const size = TILE_HEIGHT * 0.55;
+  const borderWidth = city.isCapital ? 4 : 3;
 
-  // City base: rounded square
-  const base = new Graphics();
-  base.roundRect(-size / 2, -size / 2, size, size, 3)
-    .fill({ color: fillColor })
-    .stroke({ width: 2, color: 0xffffff, alpha: 0.8 });
-  container.addChild(base);
+  // Draw a colored diamond border around the tile (inset slightly)
+  const inset = 3;
+  const hw = TILE_WIDTH / 2;
+  const hh = TILE_HEIGHT / 2;
+  const top = { x: px + hw, y: py + inset };
+  const right = { x: px + TILE_WIDTH - inset, y: py + hh };
+  const bottom = { x: px + hw, y: py + TILE_HEIGHT - inset };
+  const left = { x: px + inset, y: py + hh };
 
-  // Capital marker: small diamond on top
+  // Semi-transparent fill to tint the tile
+  g.moveTo(top.x, top.y)
+    .lineTo(right.x, right.y)
+    .lineTo(bottom.x, bottom.y)
+    .lineTo(left.x, left.y)
+    .closePath()
+    .fill({ color: fillColor, alpha: 0.25 })
+    .stroke({ width: borderWidth, color: fillColor, alpha: 0.9 });
+
+  // Capital: add a bright inner diamond highlight
   if (city.isCapital) {
-    const star = new Graphics();
-    const s = 4;
-    star.moveTo(0, -size / 2 - s - 2)
-      .lineTo(s, -size / 2 - 2)
-      .lineTo(0, -size / 2 + s - 2)
-      .lineTo(-s, -size / 2 - 2)
+    const inset2 = 8;
+    g.moveTo(px + hw, py + inset2)
+      .lineTo(px + TILE_WIDTH - inset2, py + hh)
+      .lineTo(px + hw, py + TILE_HEIGHT - inset2)
+      .lineTo(px + inset2, py + hh)
       .closePath()
-      .fill({ color: 0xffd700 });
-    container.addChild(star);
+      .stroke({ width: 1.5, color: 0xffd700, alpha: 0.7 });
   }
 
-  // Level text
+  // Level number at the tile center
   const style = new TextStyle({
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: 'monospace',
     fontWeight: 'bold',
     fill: 0xffffff,
+    stroke: { color: 0x000000, width: 2 },
   });
-  const text = new Text({ text: String(city.level), style });
+  const text = new Text({ text: `Lv${city.level}`, style });
   text.anchor.set(0.5, 0.5);
-  container.addChild(text);
+  text.position.set(px + hw, py + hh);
+  g.addChild(text);
 
-  return container;
+  return g;
 }
